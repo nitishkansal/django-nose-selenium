@@ -26,8 +26,7 @@ from unittest import TestCase
 from SocketServer import ThreadingMixIn
 from BaseHTTPServer import HTTPServer
 from django.core.handlers.wsgi import WSGIHandler
-from django.core.servers.basehttp import WSGIRequestHandler, \
-        AdminMediaHandler, WSGIServerException
+from django.core.servers.basehttp import WSGIRequestHandler
 from django.db.backends.creation import TEST_DATABASE_PREFIX
 
 
@@ -224,7 +223,7 @@ class StoppableWSGIServer(ThreadingMixIn, HTTPServer):
         try:
             HTTPServer.server_bind(self)
         except Exception as e:
-            raise WSGIServerException(e)
+            raise socket.error(e)
 
         self.setup_environ()
         self.socket.settimeout(1)
@@ -321,15 +320,12 @@ class TestServerThread(threading.Thread):
     def run(self):
         """Sets up test server and loops over handling http requests."""
         try:
-            handler = AdminMediaHandler(WSGIHandler())
-            if self.serve_static:
-                handler = _patch_static_handler(handler)
-
+            handler = _patch_static_handler(handler)
             server_address = (self.address, self.port)
             httpd = StoppableWSGIServer(server_address, WSGIRequestHandler)
             httpd.application = handler
             self.started.set()
-        except WSGIServerException as err:
+        except socket.error as err:
             self.error = err
             self.started.set()
             return
@@ -380,9 +376,7 @@ class CherryPyLiveServerPlugin(AbstractLiveServerPlugin):
         from cherrypy.wsgiserver import CherryPyWSGIServer
         from threading import Thread
 
-        _application = AdminMediaHandler(WSGIHandler())
-        if serve_static:
-            _application = _patch_static_handler(_application)
+        _application = _patch_static_handler(_application)
 
         def application(environ, start_response):
             environ['PATH_INFO'] = environ['SCRIPT_NAME'] + \
